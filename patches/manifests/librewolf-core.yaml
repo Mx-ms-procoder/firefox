@@ -1,0 +1,13 @@
+name: librewolf-core
+description: "LibreWolf upstream hardening and integration patches"
+patches:
+  - librewolf/bootstrap.patch
+  - librewolf/context-menu.patch
+  - librewolf/custom-ubo-assets-bootstrap-location.patch
+  - librewolf/dbus_name.patch
+  - librewolf/devtools-bypass.patch
+  - librewolf/disable-data-reporting-at-compile-time.patch
+  - librewolf/mozilla_dirs.patch
+  - librewolf/remove_addons.patch
+  - librewolf/rust-gentoo-musl.patch
+  - librewolf/urlbarprovider-interventions.patch

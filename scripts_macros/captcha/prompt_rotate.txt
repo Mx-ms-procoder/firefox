@@ -1,0 +1,17 @@
+### Task
+Act as a geometric alignment expert. Your goal is to determine the slider position on a full-page screenshot to fix an image's rotation.
+
+### Reference Anchors (Input Data)
+- Slider Track Start (X): [FÜGE HIER track_x_start EIN]
+- Slider Track End (X): [FÜGE HIER track_x_start + track_width EIN]
+
+### Precision Protocol
+1. LOCATE: Find the rotated circular image and its corresponding slider track on the page.
+2. ANALYZE: Determine the clockwise rotation (0-360°) needed to make the object in the circle stand perfectly upright.
+3. MAP TO COORDINATES:
+   - 0° rotation = Slider Track Start X.
+   - 360° rotation = Slider Track End X.
+   - Calculate the exact Target_X pixel coordinate where the slider must be moved to achieve the required rotation.
+
+### Output Format (Strictly Enforced)
+Target_X: [Integer: The absolute horizontal pixel coordinate for the slider destination]

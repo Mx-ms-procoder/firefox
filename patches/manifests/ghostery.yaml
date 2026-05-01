@@ -1,0 +1,4 @@
+name: ghostery
+description: "Third-party extension integration patches"
+patches:
+  - ghostery/Disable-Onboarding-Messages.patch

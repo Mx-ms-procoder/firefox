@@ -1,0 +1,10 @@
+name: security
+description: "Privacy hardening, addon policies, and DOM compatibility shims"
+patches:
+  - security/no-css-animations.patch
+  - security/shadow-root-bypass.patch
+  - security/voice-spoofing.patch
+  - security/all-addons-private-mode.patch
+  - security/disable-extension-newtab.patch
+  - security/no-search-engines.patch
+  - security/pin-addons.patch

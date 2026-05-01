@@ -1,0 +1,110 @@
+# ─── Camoufox Slim Runtime Image ─────────────────────────────────────
+# Optimized for Kubernetes pod startup (<2s target).
+# Multi-stage build: Go sidecar compilation + minimal Python runtime.
+#
+# Build:
+#   docker build -f Dockerfile.slim -t camoufox-slim .
+#
+# Run (session broker):
+#   docker run -p 8000:8000 camoufox-slim
+#
+# Run (with Redis backend):
+#   docker run -e CAMOUFOX_STORE_BACKEND=redis \
+#              -e CAMOUFOX_REDIS_URL=redis://redis:6379/0 \
+#              -p 8000:8000 camoufox-slim
+
+# ── Stage 1: Build Go uTLS sidecar ──────────────────────────────────
+FROM golang:1.21-bookworm AS go-builder
+
+WORKDIR /build
+COPY bundle/go.mod bundle/go.sum* ./
+RUN go mod download 2>/dev/null || true
+
+COPY bundle/utls_proxy.go .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o /utls_proxy ./utls_proxy.go
+
+# ── Stage 2: Minimal Python runtime ─────────────────────────────────
+FROM ubuntu:22.04 AS runtime
+
+# Prevent interactive prompts during apt install
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Install only essential packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    # Minimal font set for realistic fingerprints
+    fonts-liberation \
+    fonts-noto-core \
+    fonts-dejavu-core \
+    # X11 for headful mode (Xvfb)
+    xvfb \
+    # CA certificates for TLS
+    ca-certificates \
+    # Process management
+    tini \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Copy Go sidecar binary
+COPY --from=go-builder /utls_proxy /usr/local/bin/utls_proxy
+RUN chmod +x /usr/local/bin/utls_proxy
+
+# Install Python dependencies (minimal)
+WORKDIR /app
+COPY pythonlib/ /app/pythonlib/
+COPY requirements.txt /app/
+RUN pip3 install --no-cache-dir --break-system-packages \
+    -r requirements.txt \
+    && pip3 install --no-cache-dir --break-system-packages \
+    /app/pythonlib/ \
+    2>/dev/null || pip3 install --no-cache-dir \
+    -r requirements.txt \
+    && pip3 install --no-cache-dir /app/pythonlib/
+
+# Copy font configurations
+COPY bundle/fontconfigs/ /etc/fonts/conf.d/
+COPY bundle/fonts/ /usr/share/fonts/camoufox/
+
+# Refresh font cache
+RUN fc-cache -f 2>/dev/null || true
+
+# Create non-root user
+RUN useradd -r -s /bin/false camoufox \
+    && mkdir -p /var/lib/camoufox/snapshots \
+    && chown -R camoufox:camoufox /var/lib/camoufox
+
+# Health check scripts
+COPY --chmod=755 <<'EOF' /usr/local/bin/health-check.sh
+#!/bin/sh
+curl -sf http://localhost:8000/healthz > /dev/null 2>&1
+EOF
+
+COPY --chmod=755 <<'EOF' /usr/local/bin/readiness-check.sh
+#!/bin/sh
+response=$(curl -sf http://localhost:8000/healthz 2>/dev/null)
+if [ $? -ne 0 ]; then exit 1; fi
+echo "$response" | grep -q '"ok":true' || exit 1
+EOF
+
+# Default environment
+ENV CAMOUFOX_SNAPSHOT_DIR=/var/lib/camoufox/snapshots
+ENV CAMOUFOX_STORE_BACKEND=file
+ENV CAMOUFOX_POOL_BACKEND=memory
+ENV CAMOU_UTLS_PROFILE=firefox135
+
+# Expose ports
+EXPOSE 8000 8080
+
+# Use tini for proper signal handling
+ENTRYPOINT ["tini", "--"]
+
+# Default: run session broker
+CMD ["python3", "-m", "camoufox", "cloud-broker", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--snapshot-dir", "/var/lib/camoufox/snapshots", \
+     "--pool-size", "5"]

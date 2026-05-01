@@ -1,0 +1,40 @@
+diff --git a/security/manager/ssl/nsNSSComponent.cpp b/security/manager/ssl/nsNSSComponent.cpp
+index 0000000000..1111111111 100644
+--- a/security/manager/ssl/nsNSSComponent.cpp
++++ b/security/manager/ssl/nsNSSComponent.cpp
+@@ -1,6 +1,8 @@
+ /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
+  * This Source Code Form is subject to the terms of the Mozilla Public
+  * License, v. 2.0. */
++#include "CamouTLSOverride.hpp"
++
+ #include "nsNSSComponent.h"
+
+ #include "CryptoTask.h"
+@@ -1200,6 +1202,14 @@ nsresult nsNSSComponent::InitializeNSS() {
+   SSL_OptionSetDefault(SSL_ENABLE_0RTT_DATA, true);
+   SSL_OptionSetDefault(SSL_ENABLE_POST_HANDSHAKE_AUTH, true);
+
++  // ── Camoufox TLS Override ────────────────────────────────────────
++  // Apply CAMOU_TLS_* environment variable overrides AFTER NSS is fully
++  // initialized but BEFORE any connections are attempted. This ensures
++  // the TLS Client Hello matches the identity selected by the
++  // IdentityCoherenceEngine.
++  CamouTLSOverride::ApplyAll();
++  // ────────────────────────────────────────────────────────────────
++
+   rv = CommonInit();
+
+   MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("NSS Initialization done\n"));
+diff --git a/security/manager/ssl/moz.build b/security/manager/ssl/moz.build
+index 0000000000..1111111111 100644
+--- a/security/manager/ssl/moz.build
++++ b/security/manager/ssl/moz.build
+@@ -230,3 +230,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
+     CXXFLAGS += CONFIG["MOZ_GTK3_CFLAGS"]
+
+ SPHINX_TREES["/security/nss"] = "doc"
++
++# Camoufox TLS Override
++LOCAL_INCLUDES += ["/camoucfg"]
+\ No newline at end of file

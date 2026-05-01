@@ -1,0 +1,9 @@
+name: core
+description: "Core runtime and browser-shell patches"
+patches:
+  - core/chromeutil.patch
+  - core/config.patch
+  - core/disable-remote-subframes.patch
+  - core/global-style-sheets.patch
+  - core/windows-theming-bug-modified.patch
+  - core/browser-init.patch

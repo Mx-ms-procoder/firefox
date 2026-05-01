@@ -1,0 +1,17 @@
+### Task
+Act as a high-precision spatial coordinate engine. Your goal is to find the exact horizontal (X) screen coordinate for a slider CAPTCHA on a full-page screenshot.
+
+### Reference Anchors (Input Data)
+- Slider Track Start (X): [FÜGE HIER track_x_start EIN]
+- Slider Track End (X): [FÜGE HIER track_x_start + track_width EIN]
+
+### Precision Protocol
+1. FOCUS: Look only at the horizontal segment between the Start and End X-coordinates provided above.
+2. DETECT: Locate the puzzle piece and the target shadow hole within this segment.
+3. MEASURE: 
+   - Determine the exact center-point of the target shadow hole.
+   - Use the provided X-coordinates as a scale: Start is 0, End is 1000.
+4. CALCULATE: Translate the visual position of the hole back into an absolute pixel coordinate based on the provided Start/End anchors.
+
+### Output Format (Strictly Enforced)
+Target_X: [Integer: The absolute horizontal pixel coordinate for the slider destination]

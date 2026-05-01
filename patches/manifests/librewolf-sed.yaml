@@ -1,0 +1,6 @@
+name: librewolf-sed
+description: "LibreWolf sed-style browser policy patches"
+patches:
+  - librewolf/sed-patches/allow-searchengines-non-esr.patch
+  - librewolf/sed-patches/disable-pocket.patch
+  - librewolf/sed-patches/stop-undesired-requests.patch

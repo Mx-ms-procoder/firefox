@@ -1,0 +1,34 @@
+# Core dependencies
+click
+requests
+orjson
+browserforge>=1.2.1
+playwright==1.48.0
+pyyaml
+platformdirs
+tqdm
+numpy
+ua_parser
+typing_extensions
+screeninfo
+lxml
+language-tags
+pysocks
+geoip2
+
+# Script & Utility dependencies
+easygui
+tabulate
+zstandard
+SpeechRecognition
+pydub
+tenacity
+
+# Test & Server dependencies
+pytest
+Pillow
+pyOpenSSL
+twisted
+autobahn
+flaky
+pixelmatch

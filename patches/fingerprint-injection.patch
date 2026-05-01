@@ -1,0 +1,624 @@
+diff --git a/browser/app/moz.build b/browser/app/moz.build
+index 434167c996..e18a16aee0 100644
+--- a/browser/app/moz.build
++++ b/browser/app/moz.build
+@@ -174,3 +174,6 @@ for icon in ("firefox", "document", "newwindow", "newtab", "pbmode", "document_p
+         CONFIG["MOZ_BRANDING_DIRECTORY"],
+         icon,
+     )
++
++# DOM Mask
++LOCAL_INCLUDES += ["/camoucfg"]
+\ No newline at end of file
+diff --git a/dom/base/Element.cpp b/dom/base/Element.cpp
+index 807cb4ec25..3df0e0f70f 100644
+--- a/dom/base/Element.cpp
++++ b/dom/base/Element.cpp
+@@ -12,6 +12,7 @@
+ 
+ #include "mozilla/dom/Element.h"
+ #include "mozilla/dom/ElementInlines.h"
++#include "IdentityStateProvider.hpp"
+ 
+ #include <inttypes.h>
+ #include <initializer_list>
+@@ -984,6 +985,18 @@ nsRect Element::GetClientAreaRect() {
+   Document* doc = OwnerDoc();
+   nsPresContext* presContext = doc->GetPresContext();
+ 
++  if (doc->GetBodyElement() == this) {
++    if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++      if (displayState->clientWidth && displayState->clientHeight) {
++        return nsRect(displayState->clientLeft.value_or(0) * 60,
++                      displayState->clientTop.value_or(0) * 60,
++                      displayState->clientWidth.value() * 60,
++                      displayState->clientHeight.value() * 60);
++      }
++    }
++  }
++
+   // We can avoid a layout flush if this is the scrolling element of the
+   // document, we have overlay scrollbars, and we aren't embedded in another
+   // document
+diff --git a/dom/base/Navigator.cpp b/dom/base/Navigator.cpp
+index 8e577bd9fd..3ed748a75f 100644
+--- a/dom/base/Navigator.cpp
++++ b/dom/base/Navigator.cpp
+@@ -8,6 +8,7 @@
+ #include "base/basictypes.h"
+ 
+ #include "Navigator.h"
++#include "IdentityStateProvider.hpp"
+ #include "nsIXULAppInfo.h"
+ #include "nsPluginArray.h"
+ #include "nsMimeTypeArray.h"
+@@ -267,6 +268,8 @@ void Navigator::Invalidate() {
+ 
+ void Navigator::GetUserAgent(nsAString& aUserAgent, CallerType aCallerType,
+                              ErrorResult& aRv) const {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->userAgent) {
++      return aUserAgent.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->userAgent.value()));
++    }
++  }
+   nsCOMPtr<nsPIDOMWindowInner> window;
+ 
+   if (mWindow) {
+@@ -293,6 +296,8 @@ void Navigator::GetUserAgent(nsAString& aUserAgent, CallerType aCallerType,
+ }
+ 
+ void Navigator::GetAppCodeName(nsAString& aAppCodeName, ErrorResult& aRv) {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->appCodeName) {
++      return aAppCodeName.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->appCodeName.value()));
++    }
++  }
+   nsresult rv;
+ 
+   nsCOMPtr<nsIHttpProtocolHandler> service(
+@@ -314,6 +319,8 @@ void Navigator::GetAppCodeName(nsAString& aAppCodeName, ErrorResult& aRv) {
+ 
+ void Navigator::GetAppVersion(nsAString& aAppVersion, CallerType aCallerType,
+                               ErrorResult& aRv) const {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->appVersion) {
++      return aAppVersion.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->appVersion.value()));
++    }
++  }
+   nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
+ 
+   nsresult rv = GetAppVersion(
+@@ -325,6 +332,8 @@ void Navigator::GetAppVersion(nsAString& aAppVersion, CallerType aCallerType,
+ }
+ 
+ void Navigator::GetAppName(nsAString& aAppName) const {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->appName) {
++      return aAppName.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->appName.value()));
++    }
++  }
+   aAppName.AssignLiteral("Netscape");
+ }
+ 
+@@ -350,6 +359,15 @@ void Navigator::GetAcceptLanguages(const nsString* aLanguageOverride,
+ 
+   aLanguages.Clear();
+ 
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState();
++      navigatorState && !navigatorState->languages.empty()) {
++    for (const auto& lang : navigatorState->languages) {
++      aLanguages.AppendElement(NS_ConvertUTF8toUTF16(lang));
++    }
++    return;
++  }
++
+   // E.g. "de-de, en-us,en".
+   nsAutoString acceptLang;
+   if (aLanguageOverride && aLanguageOverride->Length())
+@@ -400,6 +418,8 @@ void Navigator::GetAcceptLanguages(const nsString* aLanguageOverride,
+  * Full details above in GetAcceptLanguages.
+  */
+ void Navigator::GetLanguage(nsAString& aLanguage) {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->language) {
++      return aLanguage.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->language.value()));
++    }
++  }
+   nsTArray<nsString> languages;
+   GetLanguages(languages);
+   MOZ_ASSERT(languages.Length() >= 1);
+@@ -423,6 +443,8 @@ void Navigator::GetLanguages(nsTArray<nsString>& aLanguages) {
+ 
+ void Navigator::GetPlatform(nsAString& aPlatform, CallerType aCallerType,
+                             ErrorResult& aRv) const {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->platform) {
++      return aPlatform.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->platform.value()));
++    }
++  }
+   if (mWindow) {
+     BrowsingContext* bc = mWindow->GetBrowsingContext();
+     nsString customPlatform;
+@@ -449,6 +471,8 @@ void Navigator::GetPlatform(nsAString& aPlatform, CallerType aCallerType,
+ void Navigator::GetOscpu(nsAString& aOSCPU, CallerType aCallerType,
+                          ErrorResult& aRv) const {
+   if (aCallerType != CallerType::System) {
++    if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++      if (navigatorState->oscpu) {
++        return aOSCPU.Assign(
++            NS_ConvertUTF8toUTF16(navigatorState->oscpu.value()));
++      }
++    }
+     // If fingerprinting resistance is on, we will spoof this value. See
+     // nsRFPService.h for details about spoofed values.
+     if (nsContentUtils::ShouldResistFingerprinting(GetDocShell(),
+@@ -488,10 +512,14 @@ void Navigator::GetVendor(nsAString& aVendor) { aVendor.Truncate(); }
+ void Navigator::GetVendorSub(nsAString& aVendorSub) { aVendorSub.Truncate(); }
+ 
+ void Navigator::GetProduct(nsAString& aProduct) {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->product) {
++      return aProduct.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->product.value()));
++    }
++  }
+   aProduct.AssignLiteral("Gecko");
+ }
+ 
+ void Navigator::GetProductSub(nsAString& aProductSub) {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->productSub) {
++      return aProductSub.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->productSub.value()));
++    }
++  }
+   // Legacy build date hardcoded for backward compatibility (bug 776376)
+   aProductSub.AssignLiteral(LEGACY_UA_GECKO_TRAIL);
+ }
+@@ -517,7 +545,11 @@ nsPluginArray* Navigator::GetPlugins(ErrorResult& aRv) {
+   return mPlugins;
+ }
+ 
+-bool Navigator::PdfViewerEnabled() { return !StaticPrefs::pdfjs_disabled(); }
++bool Navigator::PdfViewerEnabled() {
++  if (auto value = MaskConfig::GetBool("pdfViewerEnabled"); value.has_value())
++    return value.value();
++  return !StaticPrefs::pdfjs_disabled();
++}
+ 
+ Permissions* Navigator::GetPermissions(ErrorResult& aRv) {
+   if (!mWindow) {
+@@ -543,6 +575,9 @@ StorageManager* Navigator::Storage() {
+ }
+ 
+ bool Navigator::CookieEnabled() {
++  if (auto value = MaskConfig::GetBool("navigator.cookieEnabled");
++      value.has_value())
++    return value.value();
+   // Check whether an exception overrides the global cookie behavior
+   // Note that the code for getting the URI here matches that in
+   // nsHTMLDocument::SetCookie.
+@@ -589,6 +624,8 @@ bool Navigator::CookieEnabled() {
+ }
+ 
+ bool Navigator::OnLine() {
++  if (auto value = MaskConfig::GetBool("navigator.onLine"); value.has_value())
++    return value.value();
+   if (mWindow) {
+     // Check if this tab is set to be offline.
+     BrowsingContext* bc = mWindow->GetBrowsingContext();
+@@ -603,6 +640,8 @@ bool Navigator::OnLine() {
+ void Navigator::GetBuildID(nsAString& aBuildID, CallerType aCallerType,
+                            ErrorResult& aRv) const {
+   if (aCallerType != CallerType::System) {
++    if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++      if (navigatorState->buildID) {
++        return aBuildID.Assign(
++            NS_ConvertUTF8toUTF16(navigatorState->buildID.value()));
++      }
++    }
+     // If fingerprinting resistance is on, we will spoof this value. See
+     // nsRFPService.h for details about spoofed values.
+     if (nsContentUtils::ShouldResistFingerprinting(
+@@ -659,6 +698,8 @@ void Navigator::GetBuildID(nsAString& aBuildID, CallerType aCallerType,
+ }
+ 
+ void Navigator::GetDoNotTrack(nsAString& aResult) {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->doNotTrack) {
++      return aResult.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->doNotTrack.value()));
++    }
++  }
+   bool doNotTrack = StaticPrefs::privacy_donottrackheader_enabled();
+   if (!doNotTrack) {
+     nsCOMPtr<nsILoadContext> loadContext = do_GetInterface(mWindow);
+@@ -673,6 +714,9 @@ void Navigator::GetDoNotTrack(nsAString& aResult) {
+ }
+ 
+ bool Navigator::GlobalPrivacyControl() {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->globalPrivacyControl)
++      return navigatorState->globalPrivacyControl.value();
++  }
+   bool gpcStatus = StaticPrefs::privacy_globalprivacycontrol_enabled();
+   if (!gpcStatus) {
+     nsCOMPtr<nsILoadContext> loadContext = do_GetInterface(mWindow);
+@@ -684,6 +728,8 @@ bool Navigator::GlobalPrivacyControl() {
+ }
+ 
+ uint64_t Navigator::HardwareConcurrency() {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->hardwareConcurrency)
++      return navigatorState->hardwareConcurrency.value();
++  }
+   workerinternals::RuntimeService* rts =
+       workerinternals::RuntimeService::GetOrCreateService();
+   if (!rts) {
+@@ -882,6 +928,8 @@ bool Navigator::Vibrate(const nsTArray<uint32_t>& aPattern) {
+ //*****************************************************************************
+ 
+ uint32_t Navigator::MaxTouchPoints(CallerType aCallerType) {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->maxTouchPoints)
++      return navigatorState->maxTouchPoints.value();
++  }
+   nsIDocShell* docshell = GetDocShell();
+   BrowsingContext* bc = docshell ? docshell->GetBrowsingContext() : nullptr;
+ 
+diff --git a/dom/base/moz.build b/dom/base/moz.build
+index 114402c4a1..55daeabe7a 100644
+--- a/dom/base/moz.build
++++ b/dom/base/moz.build
+@@ -641,3 +641,6 @@ GeneratedFile(
+         "/servo/components/style/properties/counted_unknown_properties.py",
+     ],
+ )
++
++# DOM Mask
++LOCAL_INCLUDES += ["/camoucfg"]
+\ No newline at end of file
+diff --git a/dom/base/nsGlobalWindowInner.cpp b/dom/base/nsGlobalWindowInner.cpp
+index 3678ebc59c..03a72fe242 100644
+--- a/dom/base/nsGlobalWindowInner.cpp
++++ b/dom/base/nsGlobalWindowInner.cpp
+@@ -5,6 +5,7 @@
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ #include "nsGlobalWindowInner.h"
++#include "IdentityStateProvider.hpp"
+ 
+ #include <inttypes.h>
+ #include <stdio.h>
+@@ -3410,6 +3411,8 @@ void nsGlobalWindowInner::SetName(const nsAString& aName,
+ }
+ 
+ double nsGlobalWindowInner::GetInnerWidth(ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->innerWidth) return displayState->innerWidth.value();
++  }
+   FORWARD_TO_OUTER_OR_THROW(GetInnerWidthOuter, (aError), aError, 0);
+ }
+ 
+@@ -3421,6 +3424,8 @@ nsresult nsGlobalWindowInner::GetInnerWidth(double* aWidth) {
+ }
+ 
+ double nsGlobalWindowInner::GetInnerHeight(ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->innerHeight) return displayState->innerHeight.value();
++  }
+   // We ignore aCallerType; we only have that argument because some other things
+   // called by GetReplaceableWindowCoord need it.  If this ever changes, fix
+   //   nsresult nsGlobalWindowInner::GetInnerHeight(double* aInnerWidth)
+@@ -3437,12 +3442,16 @@ nsresult nsGlobalWindowInner::GetInnerHeight(double* aHeight) {
+ 
+ int32_t nsGlobalWindowInner::GetOuterWidth(CallerType aCallerType,
+                                            ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->outerWidth)
++      return static_cast<int32_t>(displayState->outerWidth.value());
++  }
+   FORWARD_TO_OUTER_OR_THROW(GetOuterWidthOuter, (aCallerType, aError), aError,
+                             0);
+ }
+ 
+ int32_t nsGlobalWindowInner::GetOuterHeight(CallerType aCallerType,
+                                             ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->outerHeight)
++      return static_cast<int32_t>(displayState->outerHeight.value());
++  }
+   FORWARD_TO_OUTER_OR_THROW(GetOuterHeightOuter, (aCallerType, aError), aError,
+                             0);
+ }
+@@ -3457,11 +3466,13 @@ double nsGlobalWindowInner::ScreenEdgeSlopY() const {
+ 
+ int32_t nsGlobalWindowInner::GetScreenX(CallerType aCallerType,
+                                         ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->screenX) return displayState->screenX.value();
++  }
+   FORWARD_TO_OUTER_OR_THROW(GetScreenXOuter, (aCallerType, aError), aError, 0);
+ }
+ 
+ int32_t nsGlobalWindowInner::GetScreenY(CallerType aCallerType,
+                                         ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->screenY) return displayState->screenY.value();
++  }
+   FORWARD_TO_OUTER_OR_THROW(GetScreenYOuter, (aCallerType, aError), aError, 0);
+ }
+ 
+@@ -3495,6 +3506,8 @@ static nsPresContext* GetPresContextForRatio(Document* aDoc) {
+ double nsGlobalWindowInner::GetDevicePixelRatio(CallerType aCallerType,
+                                                 ErrorResult& aError) {
+   ENSURE_ACTIVE_DOCUMENT(aError, 0.0);
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->devicePixelRatio)
++      return displayState->devicePixelRatio.value();
++  }
+ 
+   RefPtr<nsPresContext> presContext = GetPresContextForRatio(mDoc);
+   if (NS_WARN_IF(!presContext)) {
+@@ -3565,26 +3578,38 @@ already_AddRefed<MediaQueryList> nsGlobalWindowInner::MatchMedia(
+ }
+ 
+ int32_t nsGlobalWindowInner::GetScrollMinX(ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->scrollMinX) return displayState->scrollMinX.value();
++  }
+   FORWARD_TO_OUTER_OR_THROW(GetScrollBoundaryOuter, (eSideLeft), aError, 0);
+ }
+ 
+ int32_t nsGlobalWindowInner::GetScrollMinY(ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->scrollMinY) return displayState->scrollMinY.value();
++  }
+   FORWARD_TO_OUTER_OR_THROW(GetScrollBoundaryOuter, (eSideTop), aError, 0);
+ }
+ 
+ int32_t nsGlobalWindowInner::GetScrollMaxX(ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->scrollMaxX) return displayState->scrollMaxX.value();
++  }
+   FORWARD_TO_OUTER_OR_THROW(GetScrollBoundaryOuter, (eSideRight), aError, 0);
+ }
+ 
+ int32_t nsGlobalWindowInner::GetScrollMaxY(ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->scrollMaxY) return displayState->scrollMaxY.value();
++  }
+   FORWARD_TO_OUTER_OR_THROW(GetScrollBoundaryOuter, (eSideBottom), aError, 0);
+ }
+ 
+ double nsGlobalWindowInner::GetScrollX(ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->pageXOffset) return displayState->pageXOffset.value();
++  }
+   FORWARD_TO_OUTER_OR_THROW(GetScrollXOuter, (), aError, 0);
+ }
+ 
+ double nsGlobalWindowInner::GetScrollY(ErrorResult& aError) {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->pageYOffset) return displayState->pageYOffset.value();
++  }
+   FORWARD_TO_OUTER_OR_THROW(GetScrollYOuter, (), aError, 0);
+ }
+ 
+diff --git a/dom/base/nsHistory.cpp b/dom/base/nsHistory.cpp
+index 99994a73cc..837214d872 100644
+--- a/dom/base/nsHistory.cpp
++++ b/dom/base/nsHistory.cpp
+@@ -5,6 +5,7 @@
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ #include "nsHistory.h"
++#include "IdentityStateProvider.hpp"
+ 
+ #include "jsapi.h"
+ #include "nsCOMPtr.h"
+@@ -55,6 +56,8 @@ JSObject* nsHistory::WrapObject(JSContext* aCx,
+ }
+ 
+ uint32_t nsHistory::GetLength(ErrorResult& aRv) const {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->historyLength) return displayState->historyLength.value();
++  }
+   nsCOMPtr<nsPIDOMWindowInner> win(do_QueryReferent(mInnerWindow));
+   if (!win || !win->HasActiveDocument()) {
+     aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
+diff --git a/dom/base/nsScreen.cpp b/dom/base/nsScreen.cpp
+index 4bd1e0c964..a5a95d3fdf 100644
+--- a/dom/base/nsScreen.cpp
++++ b/dom/base/nsScreen.cpp
+@@ -4,6 +4,7 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
++#include "IdentityStateProvider.hpp"
+ #include "nsContentUtils.h"
+ #include "nsScreen.h"
+ #include "mozilla/dom/Document.h"
+@@ -37,6 +38,10 @@ NS_IMPL_CYCLE_COLLECTION_INHERITED(nsScreen, DOMEventTargetHelper,
+                                    mScreenOrientation)
+ 
+ int32_t nsScreen::PixelDepth() {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->colorDepth) return displayState->colorDepth.value();
++    if (displayState->pixelDepth) return displayState->pixelDepth.value();
++  }
+   // Return 24 to prevent fingerprinting.
+   if (ShouldResistFingerprinting(RFPTarget::ScreenPixelDepth)) {
+     return 24;
+@@ -89,6 +94,12 @@ CSSIntRect nsScreen::GetRect() {
+ }
+ 
+ CSSIntRect nsScreen::GetAvailRect() {
++  if (auto displayState = IdentityStateProvider::GetDisplayState()) {
++    if (displayState->availWidth && displayState->availHeight) {
++      return {static_cast<int32_t>(displayState->availLeft.value_or(0)),
++              static_cast<int32_t>(displayState->availTop.value_or(0)),
++              static_cast<int32_t>(displayState->availWidth.value()),
++              static_cast<int32_t>(displayState->availHeight.value())};
++    }
++  }
+   // Return window inner rect to prevent fingerprinting.
+   if (ShouldResistFingerprinting(RFPTarget::ScreenAvailRect)) {
+     return GetWindowInnerRect();
+diff --git a/dom/battery/BatteryManager.cpp b/dom/battery/BatteryManager.cpp
+index a42ac3017d..fadae4a714 100644
+--- a/dom/battery/BatteryManager.cpp
++++ b/dom/battery/BatteryManager.cpp
+@@ -7,6 +7,7 @@
+ #include <cmath>
+ #include <limits>
+ #include "BatteryManager.h"
++#include "IdentityStateProvider.hpp"
+ #include "Constants.h"
+ #include "mozilla/DOMEventTargetHelper.h"
+ #include "mozilla/Hal.h"
+@@ -51,6 +52,9 @@ JSObject* BatteryManager::WrapObject(JSContext* aCx,
+ 
+ bool BatteryManager::Charging() const {
+   MOZ_ASSERT(NS_IsMainThread());
++  if (auto batteryState = IdentityStateProvider::GetBatteryState()) {
++    if (batteryState->charging) return batteryState->charging.value();
++  }
++
+   // For testing, unable to report the battery status information
+   if (Preferences::GetBool("dom.battery.test.default", false)) {
+     return true;
+@@ -67,6 +71,8 @@ bool BatteryManager::Charging() const {
+ 
+ double BatteryManager::DischargingTime() const {
+   MOZ_ASSERT(NS_IsMainThread());
++  if (auto batteryState = IdentityStateProvider::GetBatteryState()) {
++    if (batteryState->dischargingTime)
++      return batteryState->dischargingTime.value();
++  }
+   // For testing, unable to report the battery status information
+   if (Preferences::GetBool("dom.battery.test.default", false)) {
+     return std::numeric_limits<double>::infinity();
+@@ -84,6 +90,8 @@ double BatteryManager::DischargingTime() const {
+ 
+ double BatteryManager::ChargingTime() const {
+   MOZ_ASSERT(NS_IsMainThread());
++  if (auto batteryState = IdentityStateProvider::GetBatteryState()) {
++    if (batteryState->chargingTime) return batteryState->chargingTime.value();
++  }
+   // For testing, unable to report the battery status information
+   if (Preferences::GetBool("dom.battery.test.default", false)) {
+     return 0.0;
+@@ -101,6 +109,7 @@ double BatteryManager::ChargingTime() const {
+ 
+ double BatteryManager::Level() const {
+   MOZ_ASSERT(NS_IsMainThread());
++  if (auto batteryState = IdentityStateProvider::GetBatteryState()) {
++    if (batteryState->level) return batteryState->level.value();
++  }
+   // For testing, unable to report the battery status information
+   if (Preferences::GetBool("dom.battery.test.default")) {
+     return 1.0;
+diff --git a/dom/battery/moz.build b/dom/battery/moz.build
+index 3a90c93c01..91d673039b 100644
+--- a/dom/battery/moz.build
++++ b/dom/battery/moz.build
+@@ -21,3 +21,6 @@ FINAL_LIBRARY = "xul"
+ 
+ MOCHITEST_CHROME_MANIFESTS += ["test/chrome.toml"]
+ MOCHITEST_MANIFESTS += ["test/mochitest.toml"]
++
++# DOM Mask
++LOCAL_INCLUDES += ["/camoucfg"]
+\ No newline at end of file
+diff --git a/dom/workers/WorkerNavigator.cpp b/dom/workers/WorkerNavigator.cpp
+index b05e409a84..8e0f7ea657 100644
+--- a/dom/workers/WorkerNavigator.cpp
++++ b/dom/workers/WorkerNavigator.cpp
+@@ -5,6 +5,7 @@
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ #include "mozilla/dom/WorkerNavigator.h"
++#include "IdentityStateProvider.hpp"
+ 
+ #include <utility>
+ 
+@@ -92,6 +93,9 @@ JSObject* WorkerNavigator::WrapObject(JSContext* aCx,
+ }
+ 
+ bool WorkerNavigator::GlobalPrivacyControl() const {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->globalPrivacyControl)
++      return navigatorState->globalPrivacyControl.value();
++  }
+   bool gpcStatus = StaticPrefs::privacy_globalprivacycontrol_enabled();
+   if (!gpcStatus) {
+     JSObject* jso = GetWrapper();
+@@ -114,6 +118,8 @@ void WorkerNavigator::SetLanguages(const nsTArray<nsString>& aLanguages) {
+ void WorkerNavigator::GetAppVersion(nsString& aAppVersion,
+                                     CallerType aCallerType,
+                                     ErrorResult& aRv) const {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->appVersion) {
++      return aAppVersion.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->appVersion.value()));
++    }
++  }
+   WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+   MOZ_ASSERT(workerPrivate);
+ 
+@@ -136,6 +142,8 @@ void WorkerNavigator::GetAppVersion(nsString& aAppVersion,
+ 
+ void WorkerNavigator::GetPlatform(nsString& aPlatform, CallerType aCallerType,
+                                   ErrorResult& aRv) const {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->platform) {
++      return aPlatform.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->platform.value()));
++    }
++  }
+   WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+   MOZ_ASSERT(workerPrivate);
+ 
+@@ -200,6 +208,8 @@ class GetUserAgentRunnable final : public WorkerMainThreadRunnable {
+ 
+ void WorkerNavigator::GetUserAgent(nsString& aUserAgent, CallerType aCallerType,
+                                    ErrorResult& aRv) const {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->userAgent) {
++      return aUserAgent.Assign(
++          NS_ConvertUTF8toUTF16(navigatorState->userAgent.value()));
++    }
++  }
+   WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+   MOZ_ASSERT(workerPrivate);
+ 
+@@ -211,6 +221,8 @@ void WorkerNavigator::GetUserAgent(nsString& aUserAgent, CallerType aCallerType,
+ }
+ 
+ uint64_t WorkerNavigator::HardwareConcurrency() const {
++  if (auto navigatorState = IdentityStateProvider::GetNavigatorState()) {
++    if (navigatorState->hardwareConcurrency)
++      return navigatorState->hardwareConcurrency.value();
++  }
+   RuntimeService* rts = RuntimeService::GetService();
+   MOZ_ASSERT(rts);
+ 
+diff --git a/dom/workers/moz.build b/dom/workers/moz.build
+index c7818826d1..2e2e6526e7 100644
+--- a/dom/workers/moz.build
++++ b/dom/workers/moz.build
+@@ -112,3 +112,6 @@ MARIONETTE_MANIFESTS += ["test/marionette/manifest.toml"]
+ XPCSHELL_TESTS_MANIFESTS += ["test/xpcshell/xpcshell.toml"]
+ 
+ BROWSER_CHROME_MANIFESTS += ["test/browser.toml"]
++
++# DOM Mask
++LOCAL_INCLUDES += ["/camoucfg"]
+\ No newline at end of file

@@ -1,0 +1,11 @@
+name: identity
+description: "Unified Identity Coherence: fingerprinting, spoofing, screen, fonts, pointers"
+patches:
+  - identity/fingerprint-injection.patch
+  - identity/locale-spoofing.patch
+  - identity/timezone-spoofing.patch
+  - identity/geolocation-spoofing.patch
+  - identity/screen-hijacker.patch
+  - identity/font-hijacker.patch
+  - identity/anti-font-fingerprinting.patch
+  - identity/force-default-pointer.patch
