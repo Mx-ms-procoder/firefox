@@ -15,6 +15,8 @@ lxml
 language-tags
 pysocks
 geoip2
+redis
+boto3
 
 # Script & Utility dependencies
 easygui

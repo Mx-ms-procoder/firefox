@@ -2,22 +2,23 @@
 Camoufox uTLS Sidecar Proxy — MitM-capable TLS fingerprint proxy.
 
 Modes (CAMOU_UTLS_MODE):
-  "transparent" — Raw TCP relay for CONNECT. Browser's NSS handles TLS. (default)
-  "mitm"        — Full MitM: terminate browser TLS, re-establish with uTLS to target.
+
+	"transparent" — Raw TCP relay for CONNECT. Browser's NSS handles TLS. (default)
+	"mitm"        — Full MitM: terminate browser TLS, re-establish with uTLS to target.
 
 Environment variables:
-  CAMOU_UTLS_PROFILE       : Fallback profile ID (default "firefox135")
-  CAMOU_UTLS_LISTEN        : Listen address (default ":8080")
-  CAMOU_UTLS_DEBUG         : "1" to enable debug logging
-  CAMOU_UTLS_MODE          : "transparent" or "mitm"
-  CAMOU_UTLS_IDENTITY_JSON : JSON blob from IdentityCoherenceEngine for custom ClientHelloSpec
-  CAMOU_UTLS_CA_CERT       : Path to CA certificate PEM (for mitm mode)
-  CAMOU_UTLS_CA_KEY        : Path to CA private key PEM (for mitm mode)
+
+	CAMOU_UTLS_PROFILE       : Fallback profile ID (default "firefox135")
+	CAMOU_UTLS_LISTEN        : Listen address (default "127.0.0.1:8080")
+	CAMOU_UTLS_DEBUG         : "1" to enable debug logging
+	CAMOU_UTLS_MODE          : "transparent" or "mitm"
+	CAMOU_UTLS_IDENTITY_JSON : JSON blob from IdentityCoherenceEngine for custom ClientHelloSpec
+	CAMOU_UTLS_CA_CERT       : Path to CA certificate PEM (for mitm mode)
+	CAMOU_UTLS_CA_KEY        : Path to CA private key PEM (for mitm mode)
 */
 package main
 
 import (
-	"bufio"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -552,7 +553,7 @@ func main() {
 	}
 	listenAddr := os.Getenv("CAMOU_UTLS_LISTEN")
 	if listenAddr == "" {
-		listenAddr = ":8080"
+		listenAddr = "127.0.0.1:8080"
 	}
 	debug := os.Getenv("CAMOU_UTLS_DEBUG") == "1"
 	mitmMode := os.Getenv("CAMOU_UTLS_MODE") == "mitm"

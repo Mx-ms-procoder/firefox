@@ -75,7 +75,7 @@ class NumericalType(Type):
 
     def validate(self, value: Any, path: List[str], type_registry: Dict[str, Type]) -> None:
         allowed_types = (int, float) if self.numeric_type is float else (int,)
-        if not isinstance(value, allowed_types):
+        if isinstance(value, bool) or not isinstance(value, allowed_types):
             raise InvalidPropertyType(
                 f"Invalid value at {'.'.join(path)}: expected {self.type_name}, got {type(value).__name__}"
             )
@@ -172,9 +172,7 @@ class ArrayType(Type):
         if self.length_conditions:
             array_len = len(value)
             length_validator = IntType(self.length_conditions)
-            try:
-                length_validator._check_conditions(array_len)
-            except Exception:
+            if not length_validator._check_conditions(array_len):
                 raise InvalidPropertyType(
                     f"Invalid array length at {'.'.join(path)}: got length {array_len}"
                 )

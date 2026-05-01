@@ -18,7 +18,12 @@ import requests
 from platformdirs import user_cache_dir
 from tqdm import tqdm
 from typing_extensions import TypeAlias
-from yaml import CLoader, load
+from yaml import load
+
+try:
+    from yaml import CSafeLoader as YAMLLoader
+except ImportError:
+    from yaml import SafeLoader as YAMLLoader
 
 from .__version__ import CONSTRAINTS
 from .exceptions import (
@@ -554,4 +559,4 @@ def load_yaml(file: str) -> Dict[str, Any]:
     Loads a local YAML file and returns it as a dictionary.
     """
     with open(LOCAL_DATA / file, 'r') as f:
-        return load(f, Loader=CLoader)
+        return load(f, Loader=YAMLLoader)

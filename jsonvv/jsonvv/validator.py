@@ -163,8 +163,3 @@ def validate_config(
     missing_required = [key for key, found in required_props.items() if not found]
     if missing_required:
         raise MissingRequiredKey(f"Missing required properties: {', '.join(missing_required)}")
-
-    # Check for missing required properties
-    missing_required = [key for key, found in required_props.items() if not found]
-    if missing_required:
-        raise MissingRequiredKey(f"Missing required properties: {', '.join(missing_required)}")

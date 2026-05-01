@@ -44,9 +44,14 @@ lxml = "*"
 language-tags = "*"
 pysocks = "*"
 geoip2 = {version = "*", optional = true}
+redis = {version = "*", optional = true}
+boto3 = {version = "*", optional = true}
 
 [tool.poetry.extras]
 geoip = ["geoip2"]
+redis = ["redis"]
+s3 = ["boto3"]
+cloud = ["redis", "boto3"]
 
 [tool.poetry.scripts]
 camoufox = "camoufox.__main__:cli"

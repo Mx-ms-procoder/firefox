@@ -26,6 +26,7 @@ from typing import (
 
 logger = logging.getLogger("camoufox.cloud_native")
 SNAPSHOT_KEY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+MAX_REQUEST_BODY_BYTES = 1_048_576
 
 
 def _sanitize_snapshot_key(value: Any) -> str:
@@ -623,6 +624,15 @@ def _make_handler(broker: SessionBroker):
 
             try:
                 content_length = int(self.headers.get("Content-Length", "0"))
+                if content_length < 0:
+                    raise ValueError("Content-Length must be non-negative")
+                if content_length > MAX_REQUEST_BODY_BYTES:
+                    _json_response(
+                        self,
+                        HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                        {"error": "request_too_large"},
+                    )
+                    return
                 payload = json.loads(self.rfile.read(content_length) or b"{}")
                 if not isinstance(payload, dict):
                     raise ValueError("request body must be a JSON object")
