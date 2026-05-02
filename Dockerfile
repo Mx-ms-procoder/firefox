@@ -8,11 +8,13 @@ COPY . /app
 # Install necessary packages
 RUN apt-get update && apt-get install -y \
     # Mach build tools
-    build-essential make msitools wget unzip rustc \
+    build-essential make msitools wget zip unzip nasm yasm nodejs pkg-config rustc \
     # Python
     python3 python3-dev python3-pip \
     # Camoufox build system tools
     git p7zip-full golang-go aria2 curl rsync \
+    # Platform-specific libraries for Linux builds
+    libdbus-glib-1-dev libgtk-3-dev libpulse-dev libsqlite3-dev libx11-xcb-dev libxt-dev \
     # CA certificates
     ca-certificates \
     && update-ca-certificates
@@ -22,7 +24,6 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Fetch Firefox & apply initial patches
 RUN make setup-minimal && \
-    make mozbootstrap && \
     mkdir -p /app/dist
 
 # Mount .mozbuild directory and dist folder
