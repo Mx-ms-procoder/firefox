@@ -265,6 +265,7 @@ type proxyServer struct {
 	mitmMode      bool
 	ca            *mitmCA
 	connCount     atomic.Int64
+	transport     *http.Transport
 }
 
 var defaultProfileSpec = map[string]utls.ClientHelloID{
@@ -299,6 +300,26 @@ func newProxyServer(profileName string, debug, mitmMode bool, ca *mitmCA) *proxy
 			}
 		}
 	}
+	
+	ps.transport = &http.Transport{
+		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return ps.dialUTLS(network, addr)
+		},
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	// Apply HTTP/2 SETTINGS parity if identity is available
+	if ps.identity != nil && ps.identity.HTTP2.HeaderTableSize > 0 {
+		h2Transport, err := http2.ConfigureTransports(ps.transport)
+		if err == nil {
+			h2Transport.MaxHeaderListSize = uint32(ps.identity.HTTP2.HeaderTableSize)
+			// Apply other HTTP2 settings if available in future
+		}
+	}
+
 	return ps
 }
 
@@ -445,23 +466,7 @@ func (ps *proxyServer) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	r.Header.Del("Proxy-Authenticate")
 	r.Header.Del("Proxy-Authorization")
 
-	transport := &http.Transport{
-		DialTLS: func(network, addr string) (net.Conn, error) {
-			return ps.dialUTLS(network, addr)
-		},
-	}
-
-	// Apply HTTP/2 SETTINGS parity if identity is available
-	if ps.identity != nil && ps.identity.HTTP2.HeaderTableSize > 0 {
-		h2Transport, err := http2.ConfigureTransports(transport)
-		if err == nil {
-			// http2.Transport doesn't expose all SETTINGS directly,
-			// but we can set the ones available
-			_ = h2Transport // Settings applied via ConfigureTransports
-		}
-	}
-
-	resp, err := transport.RoundTrip(r)
+	resp, err := ps.transport.RoundTrip(r)
 	if err != nil {
 		http.Error(w, "Bad Gateway", http.StatusBadGateway)
 		return

@@ -589,6 +589,7 @@ def _empty_response(handler: BaseHTTPRequestHandler, status: HTTPStatus) -> None
 
 
 def _make_handler(broker: SessionBroker):
+    expected_token = os.environ.get("CAMOUFOX_BROKER_TOKEN", "")
     class SessionBrokerHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             if self.path == "/healthz":
@@ -604,7 +605,14 @@ def _make_handler(broker: SessionBroker):
                     "pool_healthy": pool_ok,
                     "expired_reaped": expired_reaped,
                 })
+                })
                 return
+
+            if expected_token:
+                auth_header = self.headers.get("Authorization", "")
+                if not auth_header.startswith("Bearer ") or auth_header[7:] != expected_token:
+                    _json_response(self, HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+                    return
 
             if self.path.startswith("/sessions/"):
                 session_id = self.path.rsplit("/", 1)[-1]
@@ -621,6 +629,12 @@ def _make_handler(broker: SessionBroker):
             if self.path != "/sessions":
                 _json_response(self, HTTPStatus.NOT_FOUND, {"error": "not_found"})
                 return
+
+            if expected_token:
+                auth_header = self.headers.get("Authorization", "")
+                if not auth_header.startswith("Bearer ") or auth_header[7:] != expected_token:
+                    _json_response(self, HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+                    return
 
             try:
                 content_length = int(self.headers.get("Content-Length", "0"))
@@ -656,6 +670,12 @@ def _make_handler(broker: SessionBroker):
             if not self.path.startswith("/sessions/"):
                 _json_response(self, HTTPStatus.NOT_FOUND, {"error": "not_found"})
                 return
+
+            if expected_token:
+                auth_header = self.headers.get("Authorization", "")
+                if not auth_header.startswith("Bearer ") or auth_header[7:] != expected_token:
+                    _json_response(self, HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+                    return
 
             session_id = self.path.rsplit("/", 1)[-1]
             if broker.release_session(session_id):
