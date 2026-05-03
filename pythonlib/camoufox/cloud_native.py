@@ -605,7 +605,6 @@ def _make_handler(broker: SessionBroker):
                     "pool_healthy": pool_ok,
                     "expired_reaped": expired_reaped,
                 })
-                })
                 return
 
             if expected_token:
