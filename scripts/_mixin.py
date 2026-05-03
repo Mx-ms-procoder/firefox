@@ -213,9 +213,10 @@ def list_patches(root_dir='../patches', suffix='*.patch', features=None, validat
 
     if not selected_features:
         all_patch_paths = sorted(list_files(root_dir, suffix), key=os.path.basename)
+        claimed_normalized = {os.path.normpath(p) for p in claimed_paths}
         unclaimed_paths = [
             path for path in all_patch_paths
-            if not is_bootstrap_patch(path) and path not in claimed_paths
+            if not is_bootstrap_patch(path) and os.path.normpath(path) not in claimed_normalized
         ]
         if unclaimed_paths:
             raise PatchManifestError(

@@ -87,8 +87,8 @@ setup: setup-minimal
 
 ff-dbg: setup
 	# Only apply patches to help debug vanilla Firefox
-	make patch ./patches/chromeutil.patch
-	make patch ./patches/browser-init.patch
+	make patch ./patches/core/chromeutil.patch
+	make patch ./patches/core/browser-init.patch
 	echo "LOCAL_INCLUDES += ['/camoucfg']" >> $(cf_source_dir)/dom/base/moz.build
 	touch $(cf_source_dir)/_READY
 	make checkpoint
@@ -199,7 +199,7 @@ check-arg:
 	fi
 
 grep:
-	grep "$(_ARGS)" -r ./patches/*.patch
+	grep "$(_ARGS)" -r ./patches/
 
 patch:
 	@make check-arg $(_ARGS);

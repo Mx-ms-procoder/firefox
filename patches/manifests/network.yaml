@@ -3,3 +3,4 @@ description: "Network layer fingerprinting, TLS, HTTP/2, and WebRTC spoofing"
 patches:
   - network/network-patches.patch
   - network/webrtc-ip-spoofing.patch
+  - network/nss-tls-override.patch
